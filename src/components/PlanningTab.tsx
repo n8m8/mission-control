@@ -170,7 +170,10 @@ export function PlanningTab({ taskId, onSpecLocked }: PlanningTabProps) {
   }
 
   // Planning complete - show spec and agents
-  if (state?.isComplete && state?.spec) {
+  if (state?.isComplete) {
+    const spec = state.spec;
+    const agents = state.agents || [];
+    
     return (
       <div className="p-4 space-y-6">
         <div className="flex items-center gap-2 text-green-400">
@@ -179,44 +182,50 @@ export function PlanningTab({ taskId, onSpecLocked }: PlanningTabProps) {
         </div>
         
         {/* Spec Summary */}
-        <div className="bg-mc-bg border border-mc-border rounded-lg p-4">
-          <h3 className="font-medium mb-2">{state.spec.title}</h3>
-          <p className="text-sm text-mc-text-secondary mb-4">{state.spec.summary}</p>
-          
-          {state.spec.deliverables?.length > 0 && (
-            <div className="mb-3">
-              <h4 className="text-sm font-medium mb-1">Deliverables:</h4>
-              <ul className="list-disc list-inside text-sm text-mc-text-secondary">
-                {state.spec.deliverables.map((d, i) => (
-                  <li key={i}>{d}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {state.spec.success_criteria?.length > 0 && (
-            <div>
-              <h4 className="text-sm font-medium mb-1">Success Criteria:</h4>
-              <ul className="list-disc list-inside text-sm text-mc-text-secondary">
-                {state.spec.success_criteria.map((c, i) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        {spec ? (
+          <div className="bg-mc-bg border border-mc-border rounded-lg p-4">
+            <h3 className="font-medium mb-2">{spec.title || 'Untitled'}</h3>
+            <p className="text-sm text-mc-text-secondary mb-4">{spec.summary || 'No summary provided'}</p>
+            
+            {Array.isArray(spec.deliverables) && spec.deliverables.length > 0 && (
+              <div className="mb-3">
+                <h4 className="text-sm font-medium mb-1">Deliverables:</h4>
+                <ul className="list-disc list-inside text-sm text-mc-text-secondary">
+                  {spec.deliverables.map((d, i) => (
+                    <li key={i}>{String(d)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {Array.isArray(spec.success_criteria) && spec.success_criteria.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium mb-1">Success Criteria:</h4>
+                <ul className="list-disc list-inside text-sm text-mc-text-secondary">
+                  {spec.success_criteria.map((c, i) => (
+                    <li key={i}>{String(c)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-mc-bg border border-mc-border rounded-lg p-4">
+            <p className="text-sm text-mc-text-secondary">Planning completed but no spec was generated.</p>
+          </div>
+        )}
         
         {/* Generated Agents */}
-        {state.agents && state.agents.length > 0 && (
+        {agents.length > 0 && (
           <div>
             <h3 className="font-medium mb-2">Agents Created:</h3>
             <div className="space-y-2">
-              {state.agents.map((agent, i) => (
+              {agents.map((agent, i) => (
                 <div key={i} className="bg-mc-bg border border-mc-border rounded-lg p-3 flex items-center gap-3">
-                  <span className="text-2xl">{agent.avatar_emoji}</span>
+                  <span className="text-2xl">{agent?.avatar_emoji || '🤖'}</span>
                   <div>
-                    <p className="font-medium">{agent.name}</p>
-                    <p className="text-sm text-mc-text-secondary">{agent.role}</p>
+                    <p className="font-medium">{agent?.name || 'Unnamed Agent'}</p>
+                    <p className="text-sm text-mc-text-secondary">{agent?.role || 'No role'}</p>
                   </div>
                 </div>
               ))}

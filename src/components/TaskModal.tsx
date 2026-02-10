@@ -299,8 +299,8 @@ export function TaskModal({ task, onClose, workspaceId }: TaskModalProps) {
             <PlanningTab 
               taskId={task.id} 
               onSpecLocked={() => {
-                // Refresh task data when spec is locked
-                window.location.reload();
+                // Switch to overview tab when spec is locked
+                setActiveTab('overview');
               }}
             />
           )}
