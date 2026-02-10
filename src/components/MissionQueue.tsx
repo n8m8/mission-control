@@ -28,8 +28,17 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 
+  // Get subtasks for a parent task
+  const getSubtasks = (parentId: string) =>
+    tasks.filter((task) => task.parent_task_id === parentId).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
   const getTasksByStatus = (status: TaskStatus) =>
-    tasks.filter((task) => task.status === status);
+    tasks
+      .filter((task) => task.status === status && !task.parent_task_id) // Exclude subtasks - they nest under parents
+      .map((task) => ({
+        ...task,
+        subtasks: getSubtasks(task.id), // Attach subtasks to parent
+      }));
 
   const handleDragStart = (e: React.DragEvent, task: Task) => {
     setDraggedTask(task);
