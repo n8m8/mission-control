@@ -10,6 +10,7 @@ import { MissionQueue } from '@/components/MissionQueue';
 import { LiveFeed } from '@/components/LiveFeed';
 import { SSEDebugPanel } from '@/components/SSEDebugPanel';
 import { MobileNav, MobileTab } from '@/components/MobileNav';
+import { PendingPlansBanner } from '@/components/PendingPlansBanner';
 import { useMissionControl } from '@/lib/store';
 import { useSSE } from '@/hooks/useSSE';
 import { debug } from '@/lib/debug';
@@ -202,6 +203,9 @@ export default function WorkspacePage() {
   return (
     <div className="h-screen flex flex-col bg-mc-bg overflow-hidden">
       <Header workspace={workspace} />
+
+      {/* Pending plans banner */}
+      <PendingPlansBanner workspaceId={workspace.id} />
 
       {/* Desktop layout - 3 columns */}
       <div className="flex-1 hidden md:flex overflow-hidden">
