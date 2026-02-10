@@ -6,7 +6,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bot, CheckCircle, Circle, XCircle, Trash2, Check } from 'lucide-react';
+import { Bot, CheckCircle, Circle, XCircle, Trash2, Check, MessageSquare } from 'lucide-react';
+import { ChatHistoryPanel } from './ChatHistoryPanel';
 
 interface SessionWithAgent {
   id: string;
@@ -30,6 +31,7 @@ interface SessionsListProps {
 export function SessionsList({ taskId }: SessionsListProps) {
   const [sessions, setSessions] = useState<SessionWithAgent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewingSession, setViewingSession] = useState<SessionWithAgent | null>(null);
 
   useEffect(() => {
     loadSessions();
@@ -192,6 +194,13 @@ export function SessionsList({ taskId }: SessionsListProps) {
 
           {/* Action Buttons */}
           <div className="flex flex-col gap-1">
+            <button
+              onClick={() => setViewingSession(session)}
+              className="p-1.5 hover:bg-mc-bg-tertiary rounded text-mc-accent"
+              title="View chat history"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
             {session.status === 'active' && (
               <button
                 onClick={() => handleMarkComplete(session.openclaw_session_id)}
@@ -211,6 +220,15 @@ export function SessionsList({ taskId }: SessionsListProps) {
           </div>
         </div>
       ))}
+
+      {/* Chat History Panel */}
+      {viewingSession && (
+        <ChatHistoryPanel
+          sessionKey={viewingSession.openclaw_session_id}
+          taskTitle={viewingSession.agent_name || 'Sub-Agent Session'}
+          onClose={() => setViewingSession(null)}
+        />
+      )}
     </div>
   );
 }

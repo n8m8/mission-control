@@ -1,56 +1,54 @@
-/**
- * Server-Sent Events (SSE) endpoint for real-time updates
- * Clients connect to this endpoint and receive live event broadcasts
- */
-
 import { NextRequest } from 'next/server';
 import { registerClient, unregisterClient } from '@/lib/events';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// GET /api/events/stream - SSE endpoint for real-time updates
 export async function GET(request: NextRequest) {
   const encoder = new TextEncoder();
 
-  // Create a readable stream for SSE
   const stream = new ReadableStream({
     start(controller) {
       // Register this client
       registerClient(controller);
 
       // Send initial connection message
-      const connectMsg = encoder.encode(`: connected\n\n`);
-      controller.enqueue(connectMsg);
+      const connectMsg = `data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`;
+      controller.enqueue(encoder.encode(connectMsg));
 
-      // Set up keep-alive ping every 30 seconds
-      const keepAliveInterval = setInterval(() => {
+      // Keep-alive ping every 30 seconds
+      const pingInterval = setInterval(() => {
         try {
-          controller.enqueue(encoder.encode(`: keep-alive\n\n`));
-        } catch (error) {
-          // Client disconnected
-          clearInterval(keepAliveInterval);
+          const pingMsg = `data: ${JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() })}\n\n`;
+          controller.enqueue(encoder.encode(pingMsg));
+        } catch {
+          clearInterval(pingInterval);
         }
       }, 30000);
 
       // Handle client disconnect
       request.signal.addEventListener('abort', () => {
-        clearInterval(keepAliveInterval);
+        clearInterval(pingInterval);
         unregisterClient(controller);
         try {
           controller.close();
-        } catch (error) {
-          // Controller may already be closed
+        } catch {
+          // Already closed
         }
       });
     },
+    cancel() {
+      // Client disconnected
+    },
   });
 
-  // Return SSE response
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no', // Disable nginx buffering
+      'X-Accel-Buffering': 'no', // For nginx
     },
   });
 }

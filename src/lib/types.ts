@@ -2,7 +2,11 @@
 
 export type AgentStatus = 'standby' | 'working' | 'offline';
 
-export type TaskStatus = 'planning' | 'inbox' | 'assigned' | 'in_progress' | 'testing' | 'review' | 'done';
+export type TaskStatus = 'planning' | 'pending_approval' | 'inbox' | 'assigned' | 'in_progress' | 'testing' | 'review' | 'done' | 'blocked';
+
+export type TaskSource = 'human' | 'agent';
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent';
 
@@ -49,9 +53,24 @@ export interface Task {
   due_date?: string;
   created_at: string;
   updated_at: string;
+  // OpenClaw integration
+  openclaw_session_key?: string;
+  planning_session_key?: string;
+  // Agentic task fields
+  parent_task_id?: string;
+  source: TaskSource;
+  tags: string[];
+  approval_status?: ApprovalStatus;
+  approved_at?: string;
+  approved_by?: string;
+  color?: string;
+  sort_order: number;
+  agent_id?: string;
   // Joined fields
   assigned_agent?: Agent;
   created_by_agent?: Agent;
+  subtasks?: Task[];
+  parent_task?: Task;
 }
 
 export interface Conversation {
@@ -114,6 +133,7 @@ export interface WorkspaceStats {
   slug: string;
   icon: string;
   taskCounts: {
+    pending_approval: number;
     planning: number;
     inbox: number;
     assigned: number;
@@ -121,6 +141,7 @@ export interface WorkspaceStats {
     testing: number;
     review: number;
     done: number;
+    blocked: number;
     total: number;
   };
   agentCount: number;
@@ -238,12 +259,31 @@ export interface CreateTaskRequest {
   priority?: TaskPriority;
   assigned_agent_id?: string;
   created_by_agent_id?: string;
+  workspace_id?: string;
   business_id?: string;
   due_date?: string;
+  // Agentic task fields
+  parent_task_id?: string;
+  source?: TaskSource;
+  tags?: string[];
+  approval_status?: ApprovalStatus;
+  color?: string;
+  sort_order?: number;
+  agent_id?: string;
 }
 
 export interface UpdateTaskRequest extends Partial<CreateTaskRequest> {
   status?: TaskStatus;
+  approved_at?: string;
+  approved_by?: string;
+}
+
+// Bulk task creation for agent plans
+export interface CreateTaskPlanRequest {
+  parent_task: CreateTaskRequest;
+  subtasks: CreateTaskRequest[];
+  agent_id: string;
+  session_key?: string;
 }
 
 export interface SendMessageRequest {
@@ -291,7 +331,11 @@ export type SSEEventType =
   | 'activity_logged'
   | 'deliverable_added'
   | 'agent_spawned'
-  | 'agent_completed';
+  | 'agent_completed'
+  | 'plan_created'
+  | 'plan_approved'
+  | 'plan_rejected'
+  | 'subtask_updated';
 
 export interface SSEEvent {
   type: SSEEventType;
@@ -304,4 +348,48 @@ export interface SSEEvent {
   } | {
     id: string;  // For task_deleted events
   };
+}
+
+// WebSocket message types for real-time updates
+export type WSMessageType =
+  | 'subscribe'
+  | 'unsubscribe'
+  | 'task_update'
+  | 'plan_update'
+  | 'approval_request'
+  | 'approval_response'
+  | 'progress_update'
+  | 'error';
+
+export interface WSMessage {
+  type: WSMessageType;
+  payload: unknown;
+  timestamp: string;
+}
+
+export interface WSTaskUpdate {
+  task_id: string;
+  changes: Partial<Task>;
+  agent_id?: string;
+}
+
+export interface WSPlanUpdate {
+  parent_task_id: string;
+  subtasks: Task[];
+  status: 'created' | 'updated' | 'approved' | 'rejected';
+}
+
+export interface WSApprovalRequest {
+  task_id: string;
+  parent_task_id?: string;
+  agent_id: string;
+  plan_summary: string;
+  subtasks: Array<{ id: string; title: string; description?: string }>;
+}
+
+export interface WSProgressUpdate {
+  task_id: string;
+  progress: number; // 0-100
+  current_step?: string;
+  agent_id?: string;
 }

@@ -1,22 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, ChevronRight, Zap, ZapOff, Loader2 } from 'lucide-react';
+import { ChevronRight, Zap, ZapOff, Loader2 } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import type { Agent, AgentStatus, OpenClawSession } from '@/lib/types';
-import { AgentModal } from './AgentModal';
 
 type FilterTab = 'all' | 'working' | 'standby';
 
 interface AgentsSidebarProps {
   workspaceId?: string;
+  className?: string;
 }
 
-export function AgentsSidebar({ workspaceId }: AgentsSidebarProps) {
+export function AgentsSidebar({ workspaceId, className }: AgentsSidebarProps) {
   const { agents, selectedAgent, setSelectedAgent, agentOpenClawSessions, setAgentOpenClawSession } = useMissionControl();
   const [filter, setFilter] = useState<FilterTab>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [connectingAgentId, setConnectingAgentId] = useState<string | null>(null);
   const [activeSubAgents, setActiveSubAgents] = useState(0);
 
@@ -110,7 +108,7 @@ export function AgentsSidebar({ workspaceId }: AgentsSidebarProps) {
   };
 
   return (
-    <aside className="w-64 bg-mc-bg-secondary border-r border-mc-border flex flex-col">
+    <aside className={`${className ?? 'w-64'} bg-mc-bg-secondary border-r border-mc-border flex flex-col`}>
       {/* Header */}
       <div className="p-3 border-b border-mc-border">
         <div className="flex items-center justify-between mb-3">
@@ -166,10 +164,7 @@ export function AgentsSidebar({ workspaceId }: AgentsSidebarProps) {
               }`}
             >
               <button
-                onClick={() => {
-                  setSelectedAgent(agent);
-                  setEditingAgent(agent);
-                }}
+                onClick={() => setSelectedAgent(agent)}
                 className="w-full flex items-center gap-3 p-2 text-left"
               >
                 {/* Avatar */}
@@ -239,28 +234,12 @@ export function AgentsSidebar({ workspaceId }: AgentsSidebarProps) {
         })}
       </div>
 
-      {/* Add Agent Button */}
+      {/* Footer - agents are managed in OpenClaw */}
       <div className="p-3 border-t border-mc-border">
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-mc-bg-tertiary hover:bg-mc-border rounded text-sm text-mc-text-secondary hover:text-mc-text transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Agent
-        </button>
+        <p className="text-xs text-mc-text-secondary text-center">
+          Agents are defined in OpenClaw config
+        </p>
       </div>
-
-      {/* Modals */}
-      {showCreateModal && (
-        <AgentModal onClose={() => setShowCreateModal(false)} workspaceId={workspaceId} />
-      )}
-      {editingAgent && (
-        <AgentModal
-          agent={editingAgent}
-          onClose={() => setEditingAgent(null)}
-          workspaceId={workspaceId}
-        />
-      )}
     </aside>
   );
 }

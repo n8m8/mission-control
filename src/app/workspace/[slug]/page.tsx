@@ -9,6 +9,7 @@ import { AgentsSidebar } from '@/components/AgentsSidebar';
 import { MissionQueue } from '@/components/MissionQueue';
 import { LiveFeed } from '@/components/LiveFeed';
 import { SSEDebugPanel } from '@/components/SSEDebugPanel';
+import { MobileNav, MobileTab } from '@/components/MobileNav';
 import { useMissionControl } from '@/lib/store';
 import { useSSE } from '@/hooks/useSSE';
 import { debug } from '@/lib/debug';
@@ -29,6 +30,7 @@ export default function WorkspacePage() {
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('tasks');
 
   // Connect to SSE for real-time updates
   useSSE();
@@ -201,16 +203,28 @@ export default function WorkspacePage() {
     <div className="h-screen flex flex-col bg-mc-bg overflow-hidden">
       <Header workspace={workspace} />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Agents Sidebar */}
+      {/* Desktop layout - 3 columns */}
+      <div className="flex-1 hidden md:flex overflow-hidden">
         <AgentsSidebar workspaceId={workspace.id} />
-
-        {/* Main Content Area */}
         <MissionQueue workspaceId={workspace.id} />
-
-        {/* Live Feed */}
         <LiveFeed />
       </div>
+
+      {/* Mobile layout - single panel with bottom nav */}
+      <div className="flex-1 flex md:hidden overflow-hidden pb-16">
+        {mobileTab === 'agents' && (
+          <AgentsSidebar workspaceId={workspace.id} className="w-full border-r-0" />
+        )}
+        {mobileTab === 'tasks' && (
+          <MissionQueue workspaceId={workspace.id} />
+        )}
+        {mobileTab === 'feed' && (
+          <LiveFeed className="w-full border-l-0" />
+        )}
+      </div>
+
+      {/* Mobile bottom navigation */}
+      <MobileNav activeTab={mobileTab} onTabChange={setMobileTab} />
 
       {/* Debug Panel - only shows when debug mode enabled */}
       <SSEDebugPanel />

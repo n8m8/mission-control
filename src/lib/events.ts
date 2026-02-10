@@ -51,3 +51,6 @@ export function broadcast(event: SSEEvent): void {
 export function getActiveConnectionCount(): number {
   return clients.size;
 }
+
+// Alias for broadcast
+export const broadcastEvent = broadcast;

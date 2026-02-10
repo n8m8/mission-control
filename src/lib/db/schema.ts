@@ -43,13 +43,23 @@ CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
-  status TEXT DEFAULT 'inbox' CHECK (status IN ('planning', 'inbox', 'assigned', 'in_progress', 'testing', 'review', 'done')),
+  status TEXT DEFAULT 'inbox' CHECK (status IN ('planning', 'pending_approval', 'inbox', 'assigned', 'in_progress', 'testing', 'review', 'done', 'blocked')),
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
   assigned_agent_id TEXT REFERENCES agents(id),
   created_by_agent_id TEXT REFERENCES agents(id),
   workspace_id TEXT DEFAULT 'default' REFERENCES workspaces(id),
   business_id TEXT DEFAULT 'default',
   due_date TEXT,
+  -- Agentic task fields
+  parent_task_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
+  source TEXT DEFAULT 'human' CHECK (source IN ('human', 'agent')),
+  tags TEXT DEFAULT '[]',
+  approval_status TEXT CHECK (approval_status IN ('pending', 'approved', 'rejected', NULL)),
+  approved_at TEXT,
+  approved_by TEXT,
+  color TEXT,
+  sort_order INTEGER DEFAULT 0,
+  agent_id TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -166,6 +176,9 @@ CREATE TABLE IF NOT EXISTS task_deliverables (
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON tasks(assigned_agent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_workspace ON tasks(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_source ON tasks(source);
+CREATE INDEX IF NOT EXISTS idx_tasks_approval ON tasks(approval_status);
 CREATE INDEX IF NOT EXISTS idx_agents_workspace ON agents(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at DESC);

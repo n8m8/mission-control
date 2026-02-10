@@ -1,72 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, run } from '@/lib/db';
-import type { Agent, CreateAgentRequest } from '@/lib/types';
+import { getOpenClawClient } from '@/lib/openclaw/client';
 
-// GET /api/agents - List all agents
+interface OpenClawAgent {
+  agentId: string;
+  name?: string;
+  isDefault?: boolean;
+  heartbeat?: {
+    enabled: boolean;
+    every: string;
+  };
+  sessions?: {
+    count: number;
+    recent: Array<{
+      key: string;
+      updatedAt: number;
+    }>;
+  };
+}
+
+interface OpenClawHealthResponse {
+  agents?: OpenClawAgent[];
+}
+
+// Map OpenClaw agent to our Agent format
+function mapOpenClawAgent(oc: OpenClawAgent, index: number) {
+  // Map common agent IDs to friendly names and emojis
+  const agentMeta: Record<string, { name: string; role: string; emoji: string }> = {
+    main: { name: 'Yvette', role: 'Executive Assistant', emoji: '💅' },
+    dev: { name: 'Dev', role: 'Developer', emoji: '👩‍💻' },
+    pro: { name: 'Pro', role: 'Professional', emoji: '🎯' },
+    research: { name: 'Research', role: 'Researcher', emoji: '🔬' },
+    github: { name: 'GitHub', role: 'GitHub Integration', emoji: '🐙' },
+    paypls: { name: 'PayPls', role: 'Payment Agent', emoji: '💸' },
+  };
+
+  const meta = agentMeta[oc.agentId] || {
+    name: oc.name || oc.agentId,
+    role: 'Agent',
+    emoji: '🤖',
+  };
+
+  return {
+    id: oc.agentId,
+    name: oc.name || meta.name,
+    role: meta.role,
+    description: `OpenClaw agent: ${oc.agentId}`,
+    avatar_emoji: meta.emoji,
+    status: 'standby' as const,
+    is_master: oc.isDefault || oc.agentId === 'main',
+    workspace_id: 'default',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    // OpenClaw-specific fields
+    openclaw_agent_id: oc.agentId,
+    heartbeat_enabled: oc.heartbeat?.enabled ?? false,
+    session_count: oc.sessions?.count ?? 0,
+  };
+}
+
+// GET /api/agents - List agents from OpenClaw
 export async function GET(request: NextRequest) {
   try {
     const workspaceId = request.nextUrl.searchParams.get('workspace_id');
     
-    let agents: Agent[];
-    if (workspaceId) {
-      agents = queryAll<Agent>(`
-        SELECT * FROM agents WHERE workspace_id = ? ORDER BY is_master DESC, name ASC
-      `, [workspaceId]);
-    } else {
-      agents = queryAll<Agent>(`
-        SELECT * FROM agents ORDER BY is_master DESC, name ASC
-      `);
+    const client = getOpenClawClient();
+
+    if (!client.isConnected()) {
+      try {
+        await client.connect();
+      } catch {
+        // Return empty array if can't connect
+        console.warn('Could not connect to OpenClaw, returning empty agents list');
+        return NextResponse.json([]);
+      }
     }
+
+    // Get health which includes agents list
+    const health = await client.call<OpenClawHealthResponse>('health');
+    
+    if (!health?.agents) {
+      return NextResponse.json([]);
+    }
+
+    const agents = health.agents.map((oc, idx) => mapOpenClawAgent(oc, idx));
+    
+    // Sort: master first, then by name
+    agents.sort((a, b) => {
+      if (a.is_master && !b.is_master) return -1;
+      if (!a.is_master && b.is_master) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
     return NextResponse.json(agents);
   } catch (error) {
-    console.error('Failed to fetch agents:', error);
+    console.error('Failed to fetch agents from OpenClaw:', error);
     return NextResponse.json({ error: 'Failed to fetch agents' }, { status: 500 });
   }
 }
 
-// POST /api/agents - Create a new agent
-export async function POST(request: NextRequest) {
-  try {
-    const body: CreateAgentRequest = await request.json();
-
-    if (!body.name || !body.role) {
-      return NextResponse.json({ error: 'Name and role are required' }, { status: 400 });
-    }
-
-    const id = uuidv4();
-    const now = new Date().toISOString();
-
-    run(
-      `INSERT INTO agents (id, name, role, description, avatar_emoji, is_master, workspace_id, soul_md, user_md, agents_md, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        body.name,
-        body.role,
-        body.description || null,
-        body.avatar_emoji || '🤖',
-        body.is_master ? 1 : 0,
-        (body as { workspace_id?: string }).workspace_id || 'default',
-        body.soul_md || null,
-        body.user_md || null,
-        body.agents_md || null,
-        now,
-        now,
-      ]
-    );
-
-    // Log event
-    run(
-      `INSERT INTO events (id, type, agent_id, message, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [uuidv4(), 'agent_joined', id, `${body.name} joined the team`, now]
-    );
-
-    const agent = queryOne<Agent>('SELECT * FROM agents WHERE id = ?', [id]);
-    return NextResponse.json(agent, { status: 201 });
-  } catch (error) {
-    console.error('Failed to create agent:', error);
-    return NextResponse.json({ error: 'Failed to create agent' }, { status: 500 });
-  }
+// POST /api/agents - Not supported (agents are defined in OpenClaw config)
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Agents are managed in OpenClaw configuration. Use openclaw.json to add new agents.' },
+    { status: 400 }
+  );
 }

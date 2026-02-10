@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const sessions = await client.listSessions();
+    const response = await client.listSessions();
+    // OpenClaw returns { sessions: [...], count, path, ... }
+    // Extract the actual sessions array
+    const sessions = (response as { sessions?: unknown[] })?.sessions || response || [];
     return NextResponse.json({ sessions });
   } catch (error) {
     console.error('Failed to list OpenClaw sessions:', error);

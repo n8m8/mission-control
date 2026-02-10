@@ -151,6 +151,144 @@ const migrations: Migration[] = [
         console.log('[Migration 004] Added planning_agents');
       }
     }
+  },
+  {
+    id: '005',
+    name: 'add_agentic_task_fields',
+    up: (db) => {
+      console.log('[Migration 005] Adding agentic task fields...');
+      
+      const tasksInfo = db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[];
+      
+      // Add parent_task_id for subtask hierarchy
+      if (!tasksInfo.some(col => col.name === 'parent_task_id')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN parent_task_id TEXT REFERENCES tasks(id) ON DELETE CASCADE`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_id)`);
+        console.log('[Migration 005] Added parent_task_id');
+      }
+      
+      // Add source to track human vs agent created tasks
+      if (!tasksInfo.some(col => col.name === 'source')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN source TEXT DEFAULT 'human' CHECK (source IN ('human', 'agent'))`);
+        console.log('[Migration 005] Added source');
+      }
+      
+      // Add tags as JSON array (includes "agentic" for agent tasks)
+      if (!tasksInfo.some(col => col.name === 'tags')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN tags TEXT DEFAULT '[]'`);
+        console.log('[Migration 005] Added tags');
+      }
+      
+      // Add approval workflow fields
+      if (!tasksInfo.some(col => col.name === 'approval_status')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN approval_status TEXT CHECK (approval_status IN ('pending', 'approved', 'rejected', NULL))`);
+        console.log('[Migration 005] Added approval_status');
+      }
+      
+      if (!tasksInfo.some(col => col.name === 'approved_at')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN approved_at TEXT`);
+        console.log('[Migration 005] Added approved_at');
+      }
+      
+      if (!tasksInfo.some(col => col.name === 'approved_by')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN approved_by TEXT`);
+        console.log('[Migration 005] Added approved_by');
+      }
+      
+      // Add color for visual customization (purple for agentic tasks)
+      if (!tasksInfo.some(col => col.name === 'color')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN color TEXT`);
+        console.log('[Migration 005] Added color');
+      }
+      
+      // Add sort_order for ordering subtasks
+      if (!tasksInfo.some(col => col.name === 'sort_order')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0`);
+        console.log('[Migration 005] Added sort_order');
+      }
+      
+      // Add agent_id for which agent created/owns this task
+      if (!tasksInfo.some(col => col.name === 'agent_id')) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN agent_id TEXT`);
+        console.log('[Migration 005] Added agent_id');
+      }
+    }
+  },
+  {
+    id: '006',
+    name: 'update_tasks_status_constraint',
+    up: (db) => {
+      console.log('[Migration 006] Updating tasks table to support new statuses...');
+      
+      // SQLite doesn't support ALTER CONSTRAINT, so we need to recreate the table
+      // First, check if we need to migrate (if pending_approval/blocked exist in schema)
+      const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get() as { sql: string } | undefined;
+      
+      if (schema && schema.sql.includes('pending_approval')) {
+        console.log('[Migration 006] Tasks table already has new statuses, skipping');
+        return;
+      }
+      
+      console.log('[Migration 006] Recreating tasks table with updated status constraint...');
+      
+      // Create new table with all columns and updated constraint
+      db.exec(`
+        CREATE TABLE tasks_new (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          status TEXT DEFAULT 'inbox' CHECK (status IN ('planning', 'pending_approval', 'inbox', 'assigned', 'in_progress', 'testing', 'review', 'done', 'blocked')),
+          priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+          assigned_agent_id TEXT,
+          created_by_agent_id TEXT,
+          workspace_id TEXT DEFAULT 'default',
+          business_id TEXT DEFAULT 'default',
+          due_date TEXT,
+          openclaw_session_key TEXT,
+          planning_session_key TEXT,
+          planning_messages TEXT,
+          planning_complete INTEGER DEFAULT 0,
+          planning_spec TEXT,
+          planning_agents TEXT,
+          parent_task_id TEXT,
+          source TEXT DEFAULT 'human' CHECK (source IN ('human', 'agent')),
+          tags TEXT DEFAULT '[]',
+          approval_status TEXT CHECK (approval_status IN ('pending', 'approved', 'rejected', NULL)),
+          approved_at TEXT,
+          approved_by TEXT,
+          color TEXT,
+          sort_order INTEGER DEFAULT 0,
+          agent_id TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        )
+      `);
+      
+      // Copy data from old table
+      db.exec(`
+        INSERT INTO tasks_new SELECT 
+          id, title, description, status, priority,
+          assigned_agent_id, created_by_agent_id, workspace_id, business_id, due_date,
+          openclaw_session_key, planning_session_key, planning_messages, planning_complete, planning_spec, planning_agents,
+          parent_task_id, source, tags, approval_status, approved_at, approved_by, color, sort_order, agent_id,
+          created_at, updated_at
+        FROM tasks
+      `);
+      
+      // Drop old table and rename new
+      db.exec(`DROP TABLE tasks`);
+      db.exec(`ALTER TABLE tasks_new RENAME TO tasks`);
+      
+      // Recreate indexes
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON tasks(assigned_agent_id)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_workspace ON tasks(workspace_id)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_id)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_source ON tasks(source)`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_approval ON tasks(approval_status)`);
+      
+      console.log('[Migration 006] Tasks table recreated with new status constraint');
+    }
   }
 ];
 

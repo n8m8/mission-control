@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, ChevronRight, GripVertical } from 'lucide-react';
+import { Plus, ChevronRight, GripVertical, Bot, GitBranch } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import type { Task, TaskStatus } from '@/lib/types';
 import { TaskModal } from './TaskModal';
@@ -12,6 +12,7 @@ interface MissionQueueProps {
 }
 
 const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
+  { id: 'pending_approval', label: '🤖 PENDING', color: 'border-t-mauve' },
   { id: 'planning', label: '📋 PLANNING', color: 'border-t-mc-accent-purple' },
   { id: 'inbox', label: 'INBOX', color: 'border-t-mc-accent-pink' },
   { id: 'assigned', label: 'ASSIGNED', color: 'border-t-mc-accent-yellow' },
@@ -95,13 +96,13 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
       </div>
 
       {/* Kanban Columns */}
-      <div className="flex-1 flex gap-3 p-3 overflow-x-auto">
+      <div className="flex-1 flex gap-2 md:gap-3 p-2 md:p-3 overflow-x-auto">
         {COLUMNS.map((column) => {
           const columnTasks = getTasksByStatus(column.id);
           return (
             <div
               key={column.id}
-              className={`flex-1 min-w-[220px] max-w-[300px] flex flex-col bg-mc-bg rounded-lg border border-mc-border/50 border-t-2 ${column.color}`}
+              className={`flex-shrink-0 w-[160px] md:w-auto md:flex-1 md:min-w-[220px] md:max-w-[300px] flex flex-col bg-mc-bg rounded-lg border border-mc-border/50 border-t-2 ${column.color}`}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
@@ -166,6 +167,16 @@ function TaskCard({ task, onDragStart, onClick, isDragging }: TaskCardProps) {
   };
 
   const isPlanning = task.status === 'planning';
+  const isPendingApproval = task.status === 'pending_approval';
+  const isAgentic = task.source === 'agent' || (task.tags && task.tags.includes('agentic'));
+  const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+
+  // Determine border color based on task type
+  const getBorderClass = () => {
+    if (isAgentic || isPendingApproval) return 'border-mauve/50 hover:border-mauve';
+    if (isPlanning) return 'border-purple-500/40 hover:border-purple-500';
+    return 'border-mc-border/50 hover:border-mc-accent/40';
+  };
 
   return (
     <div
@@ -174,7 +185,8 @@ function TaskCard({ task, onDragStart, onClick, isDragging }: TaskCardProps) {
       onClick={onClick}
       className={`group bg-mc-bg-secondary border rounded-lg cursor-pointer transition-all hover:shadow-lg hover:shadow-black/20 ${
         isDragging ? 'opacity-50 scale-95' : ''
-      } ${isPlanning ? 'border-purple-500/40 hover:border-purple-500' : 'border-mc-border/50 hover:border-mc-accent/40'}`}
+      } ${getBorderClass()}`}
+      style={isAgentic ? { borderLeftWidth: '3px', borderLeftColor: task.color || '#cba6f7' } : undefined}
     >
       {/* Drag handle bar */}
       <div className="flex items-center justify-center py-1.5 border-b border-mc-border/30 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -183,13 +195,38 @@ function TaskCard({ task, onDragStart, onClick, isDragging }: TaskCardProps) {
 
       {/* Card content */}
       <div className="p-4">
+        {/* Agentic badge */}
+        {isAgentic && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <Bot className="w-3 h-3 text-mauve" />
+            <span className="text-[10px] font-medium text-mauve uppercase tracking-wide">
+              Agentic
+            </span>
+            {isPendingApproval && (
+              <span className="ml-auto px-1.5 py-0.5 bg-mauve/20 text-mauve text-[10px] rounded">
+                Pending
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Title */}
         <h4 className="text-sm font-medium leading-snug line-clamp-2 mb-3">
           {task.title}
         </h4>
+
+        {/* Subtasks indicator */}
+        {hasSubtasks && (
+          <div className="flex items-center gap-2 mb-3 py-1.5 px-2 bg-mauve/10 rounded border border-mauve/20">
+            <GitBranch className="w-3 h-3 text-mauve" />
+            <span className="text-xs text-mauve">
+              {task.subtasks!.length} subtask{task.subtasks!.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
         
         {/* Planning mode indicator */}
-        {isPlanning && (
+        {isPlanning && !isAgentic && (
           <div className="flex items-center gap-2 mb-3 py-2 px-3 bg-purple-500/10 rounded-md border border-purple-500/20">
             <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse flex-shrink-0" />
             <span className="text-xs text-purple-400 font-medium">Continue planning</span>
