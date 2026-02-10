@@ -3,19 +3,28 @@
 @tailwind utilities;
 
 :root {
-  --mc-bg: #0d1117;
-  --mc-bg-secondary: #161b22;
-  --mc-bg-tertiary: #21262d;
-  --mc-border: #30363d;
-  --mc-text: #c9d1d9;
-  --mc-text-secondary: #8b949e;
-  --mc-accent: #58a6ff;
-  --mc-accent-green: #3fb950;
-  --mc-accent-yellow: #d29922;
-  --mc-accent-red: #f85149;
-  --mc-accent-purple: #a371f7;
-  --mc-accent-pink: #db61a2;
-  --mc-accent-cyan: #39d353;
+  /* Catppuccin Mocha */
+  --mc-bg: #1e1e2e;
+  --mc-bg-secondary: #181825;
+  --mc-bg-tertiary: #313244;
+  --mc-border: #45475a;
+  --mc-text: #cdd6f4;
+  --mc-text-secondary: #a6adc8;
+  --mc-accent: #89b4fa;
+  --mc-accent-green: #a6e3a1;
+  --mc-accent-yellow: #f9e2af;
+  --mc-accent-red: #f38ba8;
+  --mc-accent-purple: #cba6f7;
+  --mc-accent-pink: #f5c2e7;
+  --mc-accent-cyan: #94e2d5;
+  --mc-accent-peach: #fab387;
+  --mc-accent-lavender: #b4befe;
+  --mc-accent-sky: #89dceb;
+  --mc-crust: #11111b;
+  --mc-surface0: #313244;
+  --mc-surface1: #45475a;
+  --mc-surface2: #585b70;
+  --mc-overlay0: #6c7086;
 }
 
 * {
@@ -36,7 +45,7 @@ body {
   color: var(--mc-text);
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Catppuccin style */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -47,12 +56,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--mc-border);
+  background: var(--mc-surface1);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--mc-text-secondary);
+  background: var(--mc-surface2);
 }
 
 /* Status badge styles */
@@ -78,24 +87,28 @@ body {
 }
 
 .priority-high {
-  @apply bg-mc-accent-yellow/20 text-mc-accent-yellow;
+  @apply bg-mc-accent-peach/20 text-mc-accent-peach;
 }
 
 .priority-urgent {
   @apply bg-mc-accent-red/20 text-mc-accent-red;
 }
 
-/* Task status column colors */
+/* Task status column colors - Catppuccin accents */
 .column-inbox {
-  @apply border-t-mc-accent-pink;
+  @apply border-t-mc-accent-lavender;
 }
 
 .column-assigned {
-  @apply border-t-mc-accent-yellow;
+  @apply border-t-mc-accent-peach;
 }
 
 .column-in_progress {
   @apply border-t-mc-accent;
+}
+
+.column-testing {
+  @apply border-t-mc-accent-sky;
 }
 
 .column-review {
@@ -131,7 +144,19 @@ body {
   animation: slide-in 0.2s ease-out;
 }
 
-/* Glow effect for online status */
+/* Glow effect for online status - Catppuccin green */
 .online-glow {
   box-shadow: 0 0 10px var(--mc-accent-green), 0 0 20px var(--mc-accent-green);
+}
+
+/* Selection color */
+::selection {
+  background-color: var(--mc-accent-purple);
+  color: var(--mc-bg);
+}
+
+/* Focus ring - Catppuccin lavender */
+*:focus-visible {
+  outline: 2px solid var(--mc-accent-lavender);
+  outline-offset: 2px;
 }
