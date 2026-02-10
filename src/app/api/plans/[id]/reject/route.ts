@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db';
 import { Task, SSEEvent } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { broadcastEvent } from '@/lib/events';
+import { wsServer } from '@/lib/websocket';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -84,12 +85,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })),
     };
 
-    // Broadcast event
+    // Broadcast event (SSE)
     const event: SSEEvent = {
       type: 'plan_rejected',
       payload: result,
     };
     broadcastEvent(event);
+
+    // Broadcast via WebSocket
+    wsServer.broadcastPlanUpdate({
+      parent_task_id: id,
+      subtasks: subtasks,
+      status: 'rejected',
+    });
 
     return NextResponse.json({
       success: true,

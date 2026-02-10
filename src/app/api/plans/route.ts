@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db';
 import { Task, CreateTaskPlanRequest, SSEEvent } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { broadcastEvent } from '@/lib/events';
+import { wsServer } from '@/lib/websocket';
 
 // POST /api/plans - Create a task plan with subtasks
 export async function POST(request: NextRequest) {
@@ -145,12 +146,28 @@ export async function POST(request: NextRequest) {
       now
     );
 
-    // Broadcast event
+    // Broadcast event (SSE)
     const event: SSEEvent = {
       type: 'plan_created',
       payload: createdParent,
     };
     broadcastEvent(event);
+
+    // Broadcast via WebSocket
+    wsServer.broadcastPlanUpdate({
+      parent_task_id: parentId,
+      subtasks: createdSubtasks,
+      status: 'created',
+    }, workspaceId);
+
+    // Send approval request notification
+    wsServer.broadcastApprovalRequest(
+      parentId,
+      agent_id,
+      parent_task.title,
+      createdSubtasks.map(st => ({ id: st.id, title: st.title })),
+      workspaceId
+    );
 
     return NextResponse.json({
       success: true,

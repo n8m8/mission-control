@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Task } from '@/lib/types';
-import { Bot, ChevronDown, ChevronUp, CheckCircle, XCircle, X } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, CheckCircle, XCircle, X, Wifi, WifiOff } from 'lucide-react';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface PendingPlansBannerProps {
   workspaceId?: string;
@@ -25,17 +26,36 @@ export function PendingPlansBanner({ workspaceId = 'default' }: PendingPlansBann
     }
   }, [workspaceId]);
 
+  // WebSocket for real-time updates
+  const { connected } = useWebSocket({
+    workspaceId,
+    onPlanCreated: (parentTaskId, subtasks) => {
+      // Refetch to get full plan data
+      fetchPlans();
+    },
+    onPlanApproved: (parentTaskId) => {
+      setPlans((prev) => prev.filter((p) => p.id !== parentTaskId));
+    },
+    onPlanRejected: (parentTaskId) => {
+      setPlans((prev) => prev.filter((p) => p.id !== parentTaskId));
+    },
+  });
+
   useEffect(() => {
     fetchPlans();
 
-    // Subscribe to SSE for real-time updates
+    // Fallback: Subscribe to SSE for real-time updates (in case WS fails)
     const eventSource = new EventSource('/api/events/stream');
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'plan_created') {
-          setPlans((prev) => [data.payload, ...prev]);
+          setPlans((prev) => {
+            // Dedupe - don't add if already exists (WS might have added it)
+            if (prev.some(p => p.id === data.payload.id)) return prev;
+            return [data.payload, ...prev];
+          });
         } else if (data.type === 'plan_approved' || data.type === 'plan_rejected') {
           setPlans((prev) => prev.filter((p) => p.id !== data.payload.id));
         }
@@ -94,6 +114,14 @@ export function PendingPlansBanner({ workspaceId = 'default' }: PendingPlansBann
           <Bot className="w-4 h-4 text-mauve" />
           <span className="text-sm font-medium text-mauve">
             {plans.length} agentic plan{plans.length !== 1 ? 's' : ''} awaiting approval
+          </span>
+          {/* WebSocket indicator */}
+          <span title={connected ? "Real-time connected" : "Using fallback polling"}>
+            {connected ? (
+              <Wifi className="w-3 h-3 text-green" />
+            ) : (
+              <WifiOff className="w-3 h-3 text-subtext0" />
+            )}
           </span>
         </div>
         <div className="flex items-center gap-2">

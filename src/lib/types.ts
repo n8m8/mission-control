@@ -352,6 +352,8 @@ export interface SSEEvent {
 
 // WebSocket message types for real-time updates
 export type WSMessageType =
+  | 'connected'
+  | 'subscribed'
   | 'subscribe'
   | 'unsubscribe'
   | 'task_update'
